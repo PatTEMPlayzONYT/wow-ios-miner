@@ -13,7 +13,16 @@ struct ContentView: View {
     @State private var running = false
 
     @State private var threads: Int32 = 0
+    @State private var mode: Int32 = -1
     private let seconds: Int32 = 8   // timed run across all cores
+
+    private func modeName(_ m: Int32) -> String {
+        switch m {
+        case 1:  return "JIT + fast mode 🚀"
+        case 2:  return "JIT + light mode"
+        default: return "interpreter + light (no JIT)"
+        }
+    }
 
     var body: some View {
         VStack(spacing: 22) {
@@ -28,7 +37,7 @@ struct ContentView: View {
                     .font(.system(size: 52, weight: .heavy))
                     .foregroundStyle(.orange)
                 if threads > 0 {
-                    Text("across \(threads) cores")
+                    Text("\(threads) cores · \(modeName(mode))")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
             }
@@ -62,7 +71,8 @@ struct ContentView: View {
         status = "Hashing for \(seconds)s on all cores… keep the app open."
         DispatchQueue.global(qos: .userInitiated).async {
             var t: Int32 = 0
-            let hs = randomx_benchmark(seconds, &t)
+            var m: Int32 = -1
+            let hs = randomx_benchmark(seconds, &t, &m)
             DispatchQueue.main.async {
                 running = false
                 if hs < 0 {
@@ -70,7 +80,10 @@ struct ContentView: View {
                 } else {
                     hashrate = hs
                     threads = t
-                    status = "Done — multi-core interpreter rate."
+                    mode = m
+                    status = m == 0
+                        ? "No JIT — start SideJITServer, relaunch, try again."
+                        : "Done — JIT active. 🎉"
                 }
             }
         }
