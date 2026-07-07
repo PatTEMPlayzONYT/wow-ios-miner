@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <sys/sysctl.h>
 #include <libkern/OSCacheControl.h>
+#include <dlfcn.h>
 
 #ifndef MAP_JIT
 #define MAP_JIT 0x0800
@@ -38,7 +39,9 @@ static int cpu_count(void) {
 // instruction, and try to run it — catching any fault — to decide safely
 // whether JIT is really usable (i.e. SideJITServer enabled it).
 // ---------------------------------------------------------------------------
-extern void pthread_jit_write_protect_np(int enabled);   // iOS 14.2+
+// pthread_jit_write_protect_np works on iOS but the SDK header marks it
+// "unavailable on iOS", so we resolve it at runtime with dlsym.
+typedef void (*jit_wp_fn)(int);
 
 static sigjmp_buf g_jbuf;
 static void jit_sig(int s) { (void)s; siglongjmp(g_jbuf, 1); }
@@ -48,6 +51,8 @@ static int jit_available(void) {
     uint32_t *p = (uint32_t *)mmap(NULL, sz, PROT_READ | PROT_WRITE | PROT_EXEC,
                                    MAP_PRIVATE | MAP_ANON | MAP_JIT, -1, 0);
     if (p == MAP_FAILED) return 0;
+
+    jit_wp_fn wp = (jit_wp_fn)dlsym(RTLD_DEFAULT, "pthread_jit_write_protect_np");
 
     struct sigaction sa, o_bus, o_segv, o_ill, o_trap;
     memset(&sa, 0, sizeof(sa));
@@ -59,9 +64,9 @@ static int jit_available(void) {
 
     int ok = 0;
     if (sigsetjmp(g_jbuf, 1) == 0) {
-        pthread_jit_write_protect_np(0);   // writable
+        if (wp) wp(0);                     // writable
         p[0] = 0xD65F03C0u;                // AArch64 RET
-        pthread_jit_write_protect_np(1);   // executable
+        if (wp) wp(1);                     // executable
         sys_icache_invalidate(p, sz);
         ((void (*)(void))p)();             // faults here if JIT not permitted
         ok = 1;
