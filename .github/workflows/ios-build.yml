@@ -25,7 +25,9 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
             -DARCH=default
-          cmake --build build --config Release -j3
+          # Build ONLY the library target — RandomX's bundled benchmark/tests
+          # executables don't link as iOS apps, and we don't need them.
+          cmake --build build --config Release --target randomx -j3
 
       - name: Stage RandomX into Vendor/
         run: |
