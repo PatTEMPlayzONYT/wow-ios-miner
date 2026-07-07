@@ -1,0 +1,6 @@
+# Force LF on everything so the macOS CI runner's bash doesn't choke on CRLF.
+* text=auto eol=lf
+*.yml text eol=lf
+*.c   text eol=lf
+*.h   text eol=lf
+*.swift text eol=lf
