@@ -12,9 +12,8 @@ struct ContentView: View {
     @State private var hashrate: Double? = nil
     @State private var running = false
 
-    // Number of hashes to time. Interpreter+light mode is slow, so keep it
-    // modest — this can still take 20-90s on an iPhone 13.
-    private let iterations: Int32 = 128
+    @State private var threads: Int32 = 0
+    private let seconds: Int32 = 8   // timed run across all cores
 
     var body: some View {
         VStack(spacing: 22) {
@@ -28,6 +27,10 @@ struct ContentView: View {
                 Text(String(format: "%.1f H/s", h))
                     .font(.system(size: 52, weight: .heavy))
                     .foregroundStyle(.orange)
+                if threads > 0 {
+                    Text("across \(threads) cores")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
             }
 
             Text(status)
@@ -56,18 +59,18 @@ struct ContentView: View {
     private func startBenchmark() {
         running = true
         hashrate = nil
-        status = "Hashing \(iterations) rounds… keep the app open."
+        status = "Hashing for \(seconds)s on all cores… keep the app open."
         DispatchQueue.global(qos: .userInitiated).async {
-            let hs = randomx_benchmark(iterations)
+            var t: Int32 = 0
+            let hs = randomx_benchmark(seconds, &t)
             DispatchQueue.main.async {
                 running = false
                 if hs < 0 {
-                    status = hs == -1
-                        ? "Out of memory allocating the RandomX cache."
-                        : "Failed to create the RandomX VM (code \(Int(hs)))."
+                    status = "Out of memory allocating the RandomX cache."
                 } else {
                     hashrate = hs
-                    status = "Done. This is your iPhone 13's real RandomX rate."
+                    threads = t
+                    status = "Done — multi-core interpreter rate."
                 }
             }
         }
