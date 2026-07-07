@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14     # free cloud Mac
+    runs-on: macos-15     # Xcode 16 — matches the project format xcodegen emits
     steps:
       - name: Checkout
         uses: actions/checkout@v4
