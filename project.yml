@@ -1,0 +1,37 @@
+name: WowLotto
+options:
+  bundleIdPrefix: com.wowlotto
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    # Unsigned build — SideStore signs it later with your Apple ID.
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: ""
+targets:
+  WowLotto:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wowlotto.miner
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_CFBundleDisplayName: WOW Lotto
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: "YES"
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/WowLotto-Bridging-Header.h
+        SWIFT_VERSION: "5.0"
+        # librandomx.a + randomx.h are staged into Vendor/ by the CI before
+        # this project is generated.
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/Vendor/include
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)/Vendor/lib
+        OTHER_LDFLAGS:
+          - -lrandomx
+          - -lc++

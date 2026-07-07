@@ -1,0 +1,65 @@
+name: Build iOS app
+
+on:
+  push:
+  workflow_dispatch:      # lets you run it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: macos-14     # free cloud Mac
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Fetch RandomX
+        run: git clone --depth 1 https://github.com/tevador/RandomX.git
+
+      - name: Build RandomX for iOS (arm64, interpreter/light — no JIT)
+        run: |
+          cd RandomX
+          cmake -B build \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DARCH=default
+          cmake --build build --config Release -j3
+
+      - name: Stage RandomX into Vendor/
+        run: |
+          mkdir -p Vendor/lib Vendor/include
+          find RandomX -name 'librandomx.a' -exec cp {} Vendor/lib/ \;
+          cp RandomX/src/randomx.h Vendor/include/
+          echo "--- Vendor contents ---"; ls -R Vendor
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build app (unsigned)
+        run: |
+          xcodebuild \
+            -project WowLotto.xcodeproj \
+            -scheme WowLotto \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package unsigned .ipa
+        run: |
+          APP=$(find dd/Build/Products -name 'WowLotto.app' -maxdepth 3 | head -1)
+          echo "app bundle: $APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -r WowLotto-unsigned.ipa Payload
+          ls -la WowLotto-unsigned.ipa
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WowLotto-unsigned-ipa
+          path: WowLotto-unsigned.ipa
+          if-no-files-found: error
